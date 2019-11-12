@@ -42,10 +42,12 @@ import errno
 import tarfile
 import subprocess
 
+TARGET = 'riscv32-unknown-elf'
+PREFIX_DIR = '/path/to/install/dir'
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 CONFIG = {
-    'target'            : 'riscv32-unknown-elf',
+    'target'            : TARGET,
     'binutils_version'  : '2.32',
     'gcc_version'       : '9.2.0',
     'gdb_version'       : '8.3',
@@ -59,7 +61,7 @@ CONFIG = {
     'archive_dir'       : os.path.join(SCRIPT_DIR, 'archives'),
     'src_dir'           : os.path.join(SCRIPT_DIR, 'src'),
     'build_dir'         : os.path.join(SCRIPT_DIR, 'build'),
-    'install_dir'       : '/usr/local/x-tools/riscv32-unknown-elf',
+    'install_dir'       : PREFIX_DIR,
 }
 
 
@@ -242,25 +244,15 @@ class GccPackage(ToolPackage):
     def prerequisites(self):
         """ Install GCC required packages into its source directory
         """
-        deps = (
-            ToolPackage('gmp', CONFIG['gmp_version'], '.tar.bz2'),
-            ToolPackage('mpfr', CONFIG['mpfr_version'], '.tar.bz2'),
-            ToolPackage('mpc', CONFIG['mpc_version'], '.tar.gz'),
-            ToolPackage('isl', CONFIG['isl_version'], '.tar.bz2'),
-        )
-        for pkg in deps:
-            print('Extracting', pkg.get_full_name(), '...')
-            pkg.extract()
+        # go to the src directory
+        os.chdir(self.get_src())
 
-            try:
-                # create a symbolic link to the source directory of the
-                # dependency package into the GCC source directory
-                os.symlink(pkg.get_src(),
-                           os.path.join(self.get_src(), pkg.name))
-            except OSError as err:
-                if err.errno != errno.EEXIST:
-                    raise OSError('Unexpected exception creating symlink for' +
-                                  pkg.name)
+        # call the contrib script in the GCC source directory. This script
+        # downloads the GCC prerequisites
+        cmd = [
+            os.path.join(self.get_src(), 'contrib/download_prerequisites'),
+        ]
+        subprocess.call(cmd)
 
     def build(self):
         """ This function builds the GCC package for the target architecture
@@ -269,6 +261,9 @@ class GccPackage(ToolPackage):
 
         # prepare the GCC prerequisites
         self.prerequisites()
+
+        # go to the build directory
+        os.chdir(self.get_build())
 
         # configure
         if os.path.lexists('Makefile'):
@@ -370,6 +365,8 @@ def main():
         pkg.extract()
         print('Building', pkg.get_full_name(), '...')
         pkg.build()
+        print('Installing', pkg.get_full_name(), '...')
+        pkg.install()
 
 
 if __name__ == '__main__':
