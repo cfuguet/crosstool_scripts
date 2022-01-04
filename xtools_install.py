@@ -42,8 +42,8 @@ import errno
 import tarfile
 import subprocess
 
-TARGET = 'riscv32-unknown-elf'
-PREFIX_DIR = '/path/to/install/dir'
+TARGET = 'riscv64-unknown-elf'
+PREFIX_DIR = '/home/360.1.361-EPI/xtools/riscv64-unknown-elf-vrp'
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 CONFIG = {
@@ -97,7 +97,11 @@ class ToolPackage(object):
         return os.path.join(CONFIG['archive_dir'], tar_file)
 
     def download(self, url):
+        if os.path.exists(self.get_src()):
+            print('The package sources are already extracted.. do nothing')
+            return True
         if os.path.exists(self.get_tar()):
+            print('The package archive are already downloaded.. do nothing')
             return True
         if not os.path.exists(CONFIG['archive_dir']):
             os.mkdir(CONFIG['archive_dir'])
