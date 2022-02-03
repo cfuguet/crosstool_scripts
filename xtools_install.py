@@ -38,13 +38,15 @@ __author__ = 'Cesar Fuguet Tortolero'
 __version__ = '1.0.0'
 
 import os
+import sys
 import errno
 import tarfile
 import subprocess
 
 TARGET = 'riscv64-unknown-elf'
-PREFIX_DIR = '/home/360.1.361-EPI/xtools/riscv64-unknown-elf-vrp'
-SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+PREFIX_DIR = '/home/560.1.361-EPI/xtools/riscv64-unknown-elf-newlib'
+SYSROOT_DIR = os.path.join(PREFIX_DIR, 'sysroot')
+SCRIPT_DIR = os.getcwd()
 
 CONFIG = {
     'target'            : TARGET,
@@ -55,15 +57,18 @@ CONFIG = {
     'mpfr_version'      : '3.1.4',
     'mpc_version'       : '1.0.3',
     'isl_version'       : '0.18',
-    'nparallel'         : 3,
+    'newlib_version'    : '4.1.0',
+    'nparallel'         : 4,
 
     # base directories shared by all tools
     'archive_dir'       : os.path.join(SCRIPT_DIR, 'archives'),
     'src_dir'           : os.path.join(SCRIPT_DIR, 'src'),
     'build_dir'         : os.path.join(SCRIPT_DIR, 'build'),
     'install_dir'       : PREFIX_DIR,
+    'sysroot_dir'       : SYSROOT_DIR,
 }
 
+os.environ["PATH"] = os.path.join(CONFIG['install_dir'], 'bin') + ':' + os.environ["PATH"]
 
 class ToolPackage(object):
     """ Generic class for describing a tool package
@@ -148,6 +153,72 @@ class ToolPackage(object):
         # go to the build directory
         os.chdir(self.get_build())
 
+class NewlibPackage(ToolPackage):
+    """ Class for describing a newlib package
+    """
+    repos_url = (
+        'ftp://sourceware.org/pub/newlib',
+    )
+
+    def download(self):
+        for base_url in NewlibPackage.repos_url:
+            url = (
+                base_url + '/' +
+                self.get_full_name() + self.tar_extension
+            )
+            if super(NewlibPackage, self).download(url):
+                return True
+
+        return False
+
+    def _configure(self):
+        """ This function configures the NEWLIB package for the target
+        architecture
+        """
+        cmd = [
+            os.path.join(self.get_src(), 'configure'),
+            '--prefix=' + CONFIG['install_dir'],
+            '--target=' + CONFIG['target'],
+            '--enable-newlib-reent-small',
+            '--enable-newlib-nano-malloc',
+            '--enable-lite-exit',
+            '--enable-newlib-global-atexit',
+            '--enable-newlib-nano-formatted-io',
+            '--disable-newlib-fvwrite-in-streamio',
+            '--disable-newlib-fseek-optimization',
+            '--disable-newlib-wide-orient',
+            '--disable-newlib-unbuf-stream-opt',
+            '--disable-newlib-supplied-syscalls',
+            '--disable-nls',
+            'CFLAGS_FOR_TARGET=-Os -ffunction-sections -fdata-sections -mcmodel=medany',
+            'CXXFLAGS_FOR_TARGET=-Os -ffunction-sections -fdata-sections -mcmodel=medany',
+        ]
+        subprocess.call(cmd)
+
+    def build(self):
+        """ This function builds the NEWLIB package for the target
+        architecture
+        """
+        super(NewlibPackage, self).build()
+
+        # configure
+        if os.path.lexists('Makefile'):
+            print('A Makefile already exists in the build directory... '
+                  'Skip configure')
+        else:
+            self._configure()
+
+        # build
+        cmd = ['make', '-j' + str(CONFIG['nparallel'])]
+        subprocess.call(cmd)
+
+    def install(self):
+        super(NewlibPackage, self).install()
+
+        # install
+        cmd = ['make', 'install']
+        subprocess.call(cmd)
+
 
 class BinutilsPackage(ToolPackage):
     """ Class for describing a binutils package
@@ -216,6 +287,8 @@ class GccPackage(ToolPackage):
         'ftp://ftp.gnu.org/gnu/gcc',
     )
 
+    newlibPkg = NewlibPackage('newlib', CONFIG['newlib_version'], '.tar.gz')
+
     def download(self):
         for base_url in GccPackage.repos_url:
             url = (
@@ -237,11 +310,14 @@ class GccPackage(ToolPackage):
             '--prefix=' + CONFIG['install_dir'],
             '--target=' + CONFIG['target'],
             '--program-prefix=' + CONFIG['target'] + '-',
+            '--with-newlib',
             '--disable-nls',
             '--disable-multilib',
             '--disable-werror',
             '--without-headers',
             '--enable-languages=c,c++',
+            'CFLAGS_FOR_TARGET=-Os -mcmodel=medany',
+            'CXXFLAGS_FOR_TARGET=-Os -mcmodel=medany',
         ]
         subprocess.call(cmd)
 
@@ -257,6 +333,10 @@ class GccPackage(ToolPackage):
             os.path.join(self.get_src(), 'contrib/download_prerequisites'),
         ]
         subprocess.call(cmd)
+
+        # download and extract the newlib library
+        GccPackage.newlibPkg.download()
+        GccPackage.newlibPkg.extract()
 
     def build(self):
         """ This function builds the GCC package for the target architecture
@@ -276,19 +356,36 @@ class GccPackage(ToolPackage):
         else:
             self._configure()
 
+        # compile a partial GCC (stage1)
         # build
         cmd = ['make', '-j' + str(CONFIG['nparallel']), 'all-gcc']
         subprocess.call(cmd)
         cmd = ['make', '-j' + str(CONFIG['nparallel']), 'all-target-libgcc']
         subprocess.call(cmd)
 
+        # install
+        super(GccPackage, self).install()
+        cmd = ['make', 'install-gcc']
+        subprocess.call(cmd)
+        cmd = ['make', 'install-target-libgcc']
+        subprocess.call(cmd)
+
+        # build and install newlib (C-library)
+        GccPackage.newlibPkg.build()
+        GccPackage.newlibPkg.install()
+
+        # recompile a full GCC (stage2)
+        os.chdir(self.get_build())
+        cmd = ['make', '-j' + str(CONFIG['nparallel'])]
+        subprocess.call(cmd)
+        cmd = ['make', 'install']
+        subprocess.call(cmd)
+
     def install(self):
         super(GccPackage, self).install()
 
         # install
-        cmd = ['make', 'install-gcc']
-        subprocess.call(cmd)
-        cmd = ['make', 'install-target-libgcc']
+        cmd = ['make', 'install']
         subprocess.call(cmd)
 
 
