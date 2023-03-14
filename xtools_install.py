@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # MIT License
 #
@@ -34,7 +34,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-__author__ = 'Cesar Fuguet Tortolero'
+__author__ = 'Cesar Fuguet'
 __version__ = '1.0.0'
 
 import os
@@ -44,21 +44,31 @@ import tarfile
 import subprocess
 
 TARGET = 'riscv64-unknown-elf'
-PREFIX_DIR = '/home/560.1.361-EPI/xtools/riscv64-unknown-elf-newlib'
+PREFIX_DIR = os.environ["RISCV"]
 SYSROOT_DIR = os.path.join(PREFIX_DIR, 'sysroot')
 SCRIPT_DIR = os.getcwd()
 
 CONFIG = {
     'target'            : TARGET,
-    'binutils_version'  : '2.32',
-    'gcc_version'       : '9.2.0',
-    'gdb_version'       : '8.3',
-    'gmp_version'       : '6.1.0',
-    'mpfr_version'      : '3.1.4',
-    'mpc_version'       : '1.0.3',
-    'isl_version'       : '0.18',
+
+#    'binutils_version'  : '2.32',
+#    'gcc_version'       : '9.2.0',
+#    'gdb_version'       : '8.3',
+#    'gmp_version'       : '6.1.0',
+#    'mpfr_version'      : '3.1.4',
+#    'mpc_version'       : '1.0.3',
+#    'isl_version'       : '0.18',
+    'binutils_version'  : '2.38',
+    'gcc_version'       : '11.2.0',
+    'gdb_version'       : '11.2',
+    'gmp_version'       : '6.2.1',
+    'mpfr_version'      : '4.1.0',
+    'mpc_version'       : '1.2.1',
+    'isl_version'       : '0.24',
+
     'newlib_version'    : '4.1.0',
-    'nparallel'         : 4,
+
+    'nparallel'         : 8,
 
     # base directories shared by all tools
     'archive_dir'       : os.path.join(SCRIPT_DIR, 'archives'),
@@ -103,17 +113,21 @@ class ToolPackage(object):
 
     def download(self, url):
         if os.path.exists(self.get_src()):
-            print('The package sources are already extracted.. do nothing')
+            print('The package sources is already extracted.. do nothing')
             return True
         if os.path.exists(self.get_tar()):
-            print('The package archive are already downloaded.. do nothing')
+            print('The package archive is already downloaded.. do nothing')
             return True
         if not os.path.exists(CONFIG['archive_dir']):
             os.mkdir(CONFIG['archive_dir'])
         print('Fetching from', url)
-        cmd = ['wget', '--tries=5', '-q', '-O', self.get_tar(), url]
+        cmd = ['wget', '--tries=50', '-q', '-O', self.get_tar(), url]
         returncode = subprocess.call(cmd)
         return True if returncode == 0 else False
+
+    def prerequisites(self):
+        print('Downloading prerequisites')
+        return
 
     def extract(self):
         """ This function extracts the package tar file
@@ -184,6 +198,7 @@ class NewlibPackage(ToolPackage):
             '--enable-lite-exit',
             '--enable-newlib-global-atexit',
             '--enable-newlib-nano-formatted-io',
+            '--enable-multilib',
             '--disable-newlib-fvwrite-in-streamio',
             '--disable-newlib-fseek-optimization',
             '--disable-newlib-wide-orient',
@@ -249,7 +264,7 @@ class BinutilsPackage(ToolPackage):
             '--target=' + CONFIG['target'],
             '--program-prefix=' + CONFIG['target'] + '-',
             '--disable-nls',
-            '--disable-multilib',
+            '--enable-multilib',
             '--disable-werror',
         ]
         subprocess.call(cmd)
@@ -312,7 +327,7 @@ class GccPackage(ToolPackage):
             '--program-prefix=' + CONFIG['target'] + '-',
             '--with-newlib',
             '--disable-nls',
-            '--disable-multilib',
+            '--enable-multilib',
             '--disable-werror',
             '--without-headers',
             '--enable-languages=c,c++',
@@ -324,6 +339,8 @@ class GccPackage(ToolPackage):
     def prerequisites(self):
         """ Install GCC required packages into its source directory
         """
+        super(GccPackage, self).prerequisites()
+
         # go to the src directory
         os.chdir(self.get_src())
 
@@ -342,9 +359,6 @@ class GccPackage(ToolPackage):
         """ This function builds the GCC package for the target architecture
         """
         super(GccPackage, self).build()
-
-        # prepare the GCC prerequisites
-        self.prerequisites()
 
         # go to the build directory
         os.chdir(self.get_build())
@@ -460,14 +474,18 @@ def main():
         GdbPackage('gdb', CONFIG['gdb_version'], '.tar.gz'),
     )
     for pkg in packages:
+        print('\nProcessing ', pkg.get_full_name(), '...')
+
         print('Downloading', pkg.get_tar(), '...')
         pkg.download()
         print('Extracting', pkg.get_full_name(), '...')
         pkg.extract()
-        print('Building', pkg.get_full_name(), '...')
-        pkg.build()
-        print('Installing', pkg.get_full_name(), '...')
-        pkg.install()
+        print('Prerequisites', pkg.get_full_name(), '...')
+        pkg.prerequisites()
+        #print('Building', pkg.get_full_name(), '...')
+        #pkg.build()
+        #print('Installing', pkg.get_full_name(), '...')
+        #pkg.install()
 
 
 if __name__ == '__main__':
