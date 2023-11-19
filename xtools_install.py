@@ -49,26 +49,31 @@ SYSROOT_DIR = os.path.join(PREFIX_DIR, 'sysroot')
 SCRIPT_DIR = os.getcwd()
 
 CONFIG = {
-    'target'            : TARGET,
+    'target' :                           TARGET,
 
-    'binutils_version'  : '2.38',
-    'gcc_version'       : '11.2.0',
-    'gdb_version'       : '11.2',
-    'gmp_version'       : '6.2.1',
-    'mpfr_version'      : '4.1.0',
-    'mpc_version'       : '1.2.1',
-    'isl_version'       : '0.24',
+    #  version of tools
+    'binutils_version' :                 '2.38',
+    'gcc_version' :                      '11.2.0',
+    'gdb_version' :                      '11.2',
+    'gmp_version' :                      '6.2.1',
+    'mpfr_version' :                     '4.1.0',
+    'mpc_version' :                      '1.2.1',
+    'isl_version' :                      '0.24',
+    'newlib_version' :                   '4.1.0',
 
-    'newlib_version'    : '4.1.0',
+    #  maximum number of parallel jobs to build the tools
+    'nparallel' : 8,
 
-    'nparallel'         : 8,
+    #  extra configure options
+    'gcc_configure_extra_options' :      '--with-isa-spec=2.2',
+    'binutils_configure_extra_options' : '--with-isa-spec=2.2',
 
-    # base directories shared by all tools
-    'archive_dir'       : os.path.join(SCRIPT_DIR, 'archives'),
-    'src_dir'           : os.path.join(SCRIPT_DIR, 'src'),
-    'build_dir'         : os.path.join(SCRIPT_DIR, 'build'),
-    'install_dir'       : PREFIX_DIR,
-    'sysroot_dir'       : SYSROOT_DIR,
+    #  base directories shared by all tools
+    'archive_dir' :                      os.path.join(SCRIPT_DIR, 'archives'),
+    'src_dir' :                          os.path.join(SCRIPT_DIR, 'src'),
+    'build_dir' :                        os.path.join(SCRIPT_DIR, 'build'),
+    'install_dir' :                      PREFIX_DIR,
+    'sysroot_dir' :                      SYSROOT_DIR,
 }
 
 os.environ["PATH"] = os.path.join(CONFIG['install_dir'], 'bin') + ':' + os.environ["PATH"]
@@ -259,6 +264,7 @@ class BinutilsPackage(ToolPackage):
             '--disable-nls',
             '--enable-multilib',
             '--disable-werror',
+            CONFIG['binutils_configure_extra_options'],
         ]
         subprocess.call(cmd)
 
@@ -324,6 +330,7 @@ class GccPackage(ToolPackage):
             '--disable-werror',
             '--without-headers',
             '--enable-languages=c,c++',
+            CONFIG['gcc_configure_extra_options'],
             'CFLAGS_FOR_TARGET=-Os -mcmodel=medany',
             'CXXFLAGS_FOR_TARGET=-Os -mcmodel=medany',
         ]
