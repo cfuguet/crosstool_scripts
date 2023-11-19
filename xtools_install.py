@@ -51,13 +51,6 @@ SCRIPT_DIR = os.getcwd()
 CONFIG = {
     'target'            : TARGET,
 
-#    'binutils_version'  : '2.32',
-#    'gcc_version'       : '9.2.0',
-#    'gdb_version'       : '8.3',
-#    'gmp_version'       : '6.1.0',
-#    'mpfr_version'      : '3.1.4',
-#    'mpc_version'       : '1.0.3',
-#    'isl_version'       : '0.18',
     'binutils_version'  : '2.38',
     'gcc_version'       : '11.2.0',
     'gdb_version'       : '11.2',
@@ -195,9 +188,9 @@ class NewlibPackage(ToolPackage):
             '--target=' + CONFIG['target'],
             '--enable-newlib-reent-small',
             '--enable-newlib-nano-malloc',
-            '--enable-lite-exit',
             '--enable-newlib-global-atexit',
             '--enable-newlib-nano-formatted-io',
+            '--enable-lite-exit',
             '--enable-multilib',
             '--disable-newlib-fvwrite-in-streamio',
             '--disable-newlib-fseek-optimization',
@@ -205,8 +198,8 @@ class NewlibPackage(ToolPackage):
             '--disable-newlib-unbuf-stream-opt',
             '--disable-newlib-supplied-syscalls',
             '--disable-nls',
-            'CFLAGS_FOR_TARGET=-Os -ffunction-sections -fdata-sections -mcmodel=medany',
-            'CXXFLAGS_FOR_TARGET=-Os -ffunction-sections -fdata-sections -mcmodel=medany',
+            'CFLAGS_FOR_TARGET=-ffunction-sections -fdata-sections -mcmodel=medany',
+            'CXXFLAGS_FOR_TARGET=-ffunction-sections -fdata-sections -mcmodel=medany',
         ]
         subprocess.call(cmd)
 
@@ -482,10 +475,10 @@ def main():
         pkg.extract()
         print('Prerequisites', pkg.get_full_name(), '...')
         pkg.prerequisites()
-        #print('Building', pkg.get_full_name(), '...')
-        #pkg.build()
-        #print('Installing', pkg.get_full_name(), '...')
-        #pkg.install()
+        print('Building', pkg.get_full_name(), '...')
+        pkg.build()
+        print('Installing', pkg.get_full_name(), '...')
+        pkg.install()
 
 
 if __name__ == '__main__':
