@@ -60,7 +60,9 @@ CONFIG = {
     'nparallel' : 8,
 
     #  extra configure options
+    'gcc_configure_extra_options' : '',
     # 'gcc_configure_extra_options' :      '--with-isa-spec=2.2',
+    'binutils_configure_extra_options' : '',
     # 'binutils_configure_extra_options' : '--with-isa-spec=2.2',
 
     #  base directories shared by all tools
