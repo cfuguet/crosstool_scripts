@@ -133,10 +133,10 @@ class ToolPackage(object):
             os.mkdir(CONFIG['src_dir'])
         if not os.path.exists(self.get_src()):
             tar = tarfile.open(name=self.get_tar(), mode='r')
-            tar.extractall(path=CONFIG['src_dir'])
+            tar.extractall(path=CONFIG['src_dir'], filter='data')
             tar.close()
         else:
-            print('The package was already extracted.. do nothing')
+            print('Package already extracted.. do nothing')
 
     def build(self):
         """ This function prepares the package for its building
